@@ -1,0 +1,31 @@
+{
+  "name": "caesar-race",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env.local scripts/serve.js",
+    "build": "node scripts/build.js",
+    "preview": "node --env-file-if-exists=.env.local scripts/serve.js --preview",
+    "lint": "eslint .",
+    "test": "node scripts/test.js",
+    "test:redis": "node --env-file-if-exists=.env.test.local tests/redis.test.js",
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm test && npm run build && npm run test:e2e",
+    "check:containers": "node scripts/check-containers.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "1.35.8",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.56.1",
+    "esbuild": "0.25.12",
+    "eslint": "10.15.0",
+    "globals": "16.5.0"
+  }
+}

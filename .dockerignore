@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.git-local
+.agents
+.codex
+.aws
+.env*
+!.env.example
+test-results
+playwright-report
+*.bundle
+*.tar.gz

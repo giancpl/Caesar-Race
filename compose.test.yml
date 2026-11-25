@@ -1,0 +1,34 @@
+services:
+  redis:
+    image: redis:7.4-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+  srh:
+    image: hiett/serverless-redis-http@sha256:5b0bb9239fce53abf87b2018a7a0deb9ec7bd900c5360738fe5fbeeb426f9150
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: caesar-local-testing-only
+      SRH_CONNECTION_STRING: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+  verify:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    init: true
+    user: "${CAESAR_QA_UID:-1000}:${CAESAR_QA_GID:-1000}"
+    shm_size: 512mb
+    security_opt: ["label=disable"]
+    environment:
+      CI: "true"
+      CAESAR_TEST_REDIS_REST_URL: http://srh:80
+      CAESAR_TEST_REDIS_REST_TOKEN: caesar-local-testing-only
+      CAESAR_REQUIRE_REDIS_TESTS: "1"
+    volumes:
+      - ./test-results/container:/artifacts
+    depends_on: [srh]
