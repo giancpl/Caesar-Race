@@ -14,13 +14,14 @@ function client(handler) {
     await handler(req, response); return { status: response.statusCode, ...response.data, headers: response.headers };
   };
 }
-const createBody = () => ({ name: 'Host', difficulty: 'easy', rounds: 1, participates: true, requestId: randomUUID() });
+const createBody = () => ({ name: 'Host', difficulty: 'easy', rounds: 1, participates: false, requestId: randomUUID() });
 test('HTTP validates methods, JSON, strict shape, actual body size and origin', async () => {
   const call = client(createHandler({ storage: new MemoryStorage(), env: {} }));
   assert.equal((await call('create', { method: 'GET' })).status, 405);
   assert.equal((await call('unknown')).status, 400);
   assert.equal((await call('create', { raw: '{' })).status, 400);
   assert.equal((await call('create', { body: [] })).status, 400);
+  assert.equal((await call('create', { body: { ...createBody(), participates: true } })).status, 400);
   assert.equal((await call('create', { body: { ...createBody(), extra: true } })).status, 400);
   assert.equal((await call('create', { body: createBody(), headers: { 'content-type': 'text/plain' } })).status, 415);
   assert.equal((await call('create', { body: createBody(), headers: { origin: 'https://evil.example' } })).status, 403);

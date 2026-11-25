@@ -7,13 +7,13 @@ import { standings, normalizeName } from '../../server/domain/room.js';
 import { createStorage } from '../../server/storage/index.js';
 const token = () => randomBytes(32).toString('base64url');
 const requestId = () => randomUUID();
-async function fixture({ participates = false, rounds = 2, difficulty = 'easy' } = {}) {
+async function fixture({ rounds = 2, difficulty = 'easy' } = {}) {
   let now = 100000;
   const storage = new MemoryStorage({ clock: () => now });
   const service = new RoomService(storage, { namespace: 'caesar-race:test', clock: () => now });
   const second = new RoomService(storage, { namespace: 'caesar-race:test', clock: () => now });
   const host = token();
-  let view = (await service.execute('create', { name: 'Teacher', difficulty, rounds, participates, requestId: requestId() }, host)).room;
+  let view = (await service.execute('create', { name: 'Teacher', difficulty, rounds, participates: false, requestId: requestId() }, host)).room;
   const api = async (action, tok = host, extra = {}, handler = service) => handler.execute(action, { code: view.code, raceId: view.raceId, requestId: requestId(), ...extra }, tok);
   const add = async (name = 'Alice') => { const tok = token(); await service.execute('join', { code: view.code, name, requestId: requestId() }, tok); return tok; };
   const raw = () => storage.get(service.key(`room:${view.code}`));
@@ -22,7 +22,7 @@ async function fixture({ participates = false, rounds = 2, difficulty = 'easy' }
 }
 test('creation recovery is idempotent and stores hashes only', async () => {
   const storage = new MemoryStorage(); const service = new RoomService(storage); const host = token();
-  const body = { name: 'Host', difficulty: 'easy', rounds: 3, participates: true, requestId: requestId() };
+  const body = { name: 'Host', difficulty: 'easy', rounds: 3, participates: false, requestId: requestId() };
   const a = await service.execute('create', body, host); const b = await service.execute('create', body, host);
   assert.equal(a.room.code, b.room.code); assert.match(a.room.code, /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/);
   assert.equal(a.room.me.completed, 0); assert.ok(!JSON.stringify([...storage.values]).includes(host));
@@ -36,15 +36,29 @@ test('names normalize, duplicates reserve the host name, joins recover safely', 
   assert.equal(normalizeName(' Alice   Smith '), 'Alice Smith');
   for (const name of ['', 'x'.repeat(25), 'a\u0000', 12, 'a\u200b']) assert.throws(() => normalizeName(name));
 });
-test('host participation consumes a slot; spectator does not; concurrent capacity is exact', async () => {
-  for (const participates of [true, false]) {
-    const f = await fixture({ participates });
-    const results = await Promise.allSettled(Array.from({ length: 35 }, (_, i) => f.add(`Player ${i}`)));
-    // Retry contention failures, without permitting capacity overflow.
-    for (let i = 0; i < results.length; i++) if (results[i].status === 'rejected' && results[i].reason.code === 'ROOM_CONFLICT') await f.add(`Retry ${i}`).catch((e) => assert.equal(e.code, 'ROOM_FULL'));
-    assert.equal((await f.raw()).members.filter((m) => m.participates).length, 30);
-    await assert.rejects(f.add('Overflow'), { code: 'ROOM_FULL' });
-  }
+test('spectator host reserves no slot; concurrent capacity is exact', async () => {
+  const f = await fixture();
+  const results = await Promise.allSettled(Array.from({ length: 35 }, (_, i) => f.add(`Player ${i}`)));
+  // Retry contention failures, without permitting capacity overflow.
+  for (let i = 0; i < results.length; i++) if (results[i].status === 'rejected' && results[i].reason.code === 'ROOM_CONFLICT') await f.add(`Retry ${i}`).catch((e) => assert.equal(e.code, 'ROOM_FULL'));
+  assert.equal((await f.raw()).members.filter((m) => m.participates).length, 30);
+  await assert.rejects(f.add('Overflow'), { code: 'ROOM_FULL' });
+});
+test('hosts cannot participate, receive challenges or play, including legacy memberships', async () => {
+  const f = await fixture({ rounds: 1 });
+  await assert.rejects(f.service.execute('create', { name: 'Host', difficulty: 'easy', rounds: 1, participates: true, requestId: requestId() }, token()), { code: 'INVALID_SETTINGS' });
+  await assert.rejects(f.api('start'), { code: 'PLAYER_REQUIRED' });
+  const player = await f.add(); await f.start();
+  const raw = await f.raw(); raw.members[0].participates = true;
+  // Simulate a record created by the previous participating-host implementation.
+  f.storage.values.get(f.service.key(`room:${raw.code}`)).value = raw;
+  const view = (await f.api('status')).room;
+  assert.equal(view.me.participates, false); assert.equal(view.me.challenge, undefined);
+  assert.equal(view.occupancy, 1); assert.equal(view.standings.some((m) => m.host), false);
+  for (const [action, body] of [['answer', { answer: raw.sequence[0].plaintext }], ['hint', { hintNumber: 1 }], ['next', {}]]) await assert.rejects(f.api(action, f.host, { roundIndex: 0, ...body }), { code: 'PLAYER_REQUIRED' });
+  assert.equal((await f.raw()).members[0].progress.attempts, 0);
+  await f.api('answer', player, { roundIndex: 0, answer: raw.sequence[0].plaintext });
+  assert.equal((await f.api('status')).room.winnerId, (await f.raw()).members[1].id);
 });
 test('authorization, countdown boundary and late join rejection', async () => {
   const f = await fixture(); const p = await f.add();
@@ -126,18 +140,18 @@ test('production cannot silently fall back to memory', () => {
 });
 test('a final answer racing cancellation has one coherent terminal outcome', async () => {
   for (let i = 0; i < 5; i++) {
-    const f = await fixture({ rounds: 1, participates: true }); await f.start();
+    const f = await fixture({ rounds: 1 }); const player = await f.add(); await f.start();
     const answer = (await f.raw()).sequence[0].plaintext;
-    await Promise.allSettled([f.api('answer', f.host, { roundIndex: 0, answer }), f.api('cancel', f.host, {}, f.second)]);
+    await Promise.allSettled([f.api('answer', player, { roundIndex: 0, answer }), f.api('cancel', f.host, {}, f.second)]);
     const raw = await f.raw();
     assert.ok(['finished', 'cancelled'].includes(raw.status));
     assert.equal(Boolean(raw.winnerId), raw.status === 'finished');
-    assert.equal(raw.members[0].progress.completed, raw.status === 'finished' ? 1 : 0);
+    assert.equal(raw.members[1].progress.completed, raw.status === 'finished' ? 1 : 0);
   }
 });
 test('late answers and repeated resets cannot alter the newly prepared race', async () => {
-  const f = await fixture({ participates: true }); await f.start(); await f.api('cancel');
-  await Promise.allSettled([f.api('reset'), f.api('reset', f.host, {}, f.second), f.api('answer', f.host, { roundIndex: 0, answer: 'late answer' }, f.second)]);
+  const f = await fixture(); const player = await f.add(); await f.start(); await f.api('cancel');
+  await Promise.allSettled([f.api('reset'), f.api('reset', f.host, {}, f.second), f.api('answer', player, { roundIndex: 0, answer: 'late answer' }, f.second)]);
   const raw = await f.raw(); assert.equal(raw.status, 'lobby'); assert.notEqual(raw.raceId, f.view.raceId); assert.equal(raw.members[0].progress.attempts, 0);
 });
 test('revoked sessions cannot replay old gameplay receipts, but leave retries remain safe', async () => {

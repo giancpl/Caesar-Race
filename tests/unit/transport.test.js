@@ -22,6 +22,37 @@ test('an old response cannot clear or replace a newer session', async (t) => {
   const client = new RoomClient(); const result = client.status(); client.clear(); const replacement = session(); client.session = replacement;
   pending.resolve(); await assert.rejects(result, { code: 'SESSION_CHANGED' }); assert.equal(client.session, replacement);
 });
+test('creating or joining cannot overwrite an existing room identity', async (t) => {
+  const saved = session();
+  t.mock.method(storage, 'get', () => saved);
+  const write = t.mock.method(storage, 'set', () => {});
+  const fetch = t.mock.method(globalThis, 'fetch', () => { throw new Error('Unexpected request'); });
+  const client = new RoomClient();
+  for (const action of ['create', 'join']) await assert.rejects(client.bootstrap(action, { code: 'XYZ234', name: 'Player' }), { code: 'SESSION_EXISTS' });
+  assert.equal(client.session, saved); assert.equal(write.mock.calls.length, 0); assert.equal(fetch.mock.calls.length, 0);
+});
+test('old authorization failures cannot invalidate the replacement session', async (t) => {
+  t.mock.method(storage, 'get', () => session()); t.mock.method(storage, 'remove', () => {});
+  const pending = deferred();
+  t.mock.method(globalThis, 'fetch', async () => { await pending.promise; return Response.json({ ok: false, error: 'INVALID_SESSION' }, { status: 401 }); });
+  const client = new RoomClient(); const result = client.status(); client.clear(); const replacement = session(); client.session = replacement;
+  pending.resolve(); await assert.rejects(result, { code: 'SESSION_CHANGED' }); assert.equal(client.session, replacement);
+});
+test('a lost join response survives reconstruction and retries the original identity', async (t) => {
+  let saved = null; const calls = [];
+  t.mock.method(storage, 'get', () => saved);
+  t.mock.method(storage, 'set', (_key, value) => { saved = structuredClone(value); });
+  const fetch = t.mock.method(globalThis, 'fetch', async (_url, options) => { calls.push(options); throw new TypeError('Disconnected'); });
+  const first = new RoomClient();
+  await assert.rejects(first.bootstrap('join', { code: room.code, name: 'Alice' }), { code: 'NETWORK_ERROR' });
+  const second = new RoomClient();
+  await assert.rejects(second.bootstrap('create', { name: 'BitPolito' }), { code: 'PENDING_REQUEST' });
+  fetch.mock.mockImplementation(async (_url, options) => { calls.push(options); return Response.json({ ok: true, room }); });
+  await second.recover();
+  assert.equal(calls[0].body, calls[1].body);
+  assert.equal(calls[0].headers.Authorization, calls[1].headers.Authorization);
+  assert.equal(second.session.bootstrap, undefined); assert.equal(second.session.code, room.code);
+});
 test('uncertain failures retain a mutation, definite validation failures clear it', async (t) => {
   const saved = session({ action: 'answer', body: { requestId: 'request-123456789', answer: 'Hello.' } });
   t.mock.method(storage, 'get', () => saved); t.mock.method(storage, 'set', () => {});

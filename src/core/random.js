@@ -1,0 +1,13 @@
+// getRandomValues remains available on HTTP LAN origins, unlike randomUUID.
+export function secureBytes(length) {
+  if (!globalThis.crypto?.getRandomValues) throw Object.assign(new Error('SECURE_CONTEXT_REQUIRED'), { code: 'SECURE_CONTEXT_REQUIRED' });
+  return globalThis.crypto.getRandomValues(new Uint8Array(length));
+}
+
+export function randomId() {
+  const bytes = secureBytes(16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}

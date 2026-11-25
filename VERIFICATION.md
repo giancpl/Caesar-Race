@@ -2,13 +2,64 @@
 
 Recorded on 25 November 2026, including the Soft BitPolito redesign. Checks were performed locally. No cloud resources were provisioned and no application deployment was performed.
 
-## Reproducible local gate
+## Latest update: session recovery and deliberate departures
+
+Home, Back/Forward, refresh and page suspension no longer trigger room departure or closure. Only the confirmed **Leave room** or **Close room** action under **Room session** sends a leave mutation. Recovery screens no longer offer an immediate destructive “Forget session” action. Reopening the same invitation restores the saved identity; another invitation or room-creation form cannot overwrite it. Pending bootstrap operations retain their original token, payload and request ID through refresh. Stale authorization failures cannot invalidate a replacement session.
+
+Answer drafts and shift selections are saved separately for solo and rooms, scoped to their race, player and round. Browser history no longer rewrites and pushes the previous route on Back. Returning from page suspension restarts synchronization; responses arriving during unload do not update the suspended document. Solo recovery also respects navigation while its module is loading. Existing scoring, API schemas, expiry and server-authoritative departure rules are unchanged.
+
+The WebKit navigation crash was traced to the browser bundled with Playwright 1.56.1. The same C++ assertion occurred in an application-free `pushState → reload → goto` reproducer. [The upstream Playwright report](https://github.com/microsoft/playwright/issues/43949) documents the exact failure and its fix in 1.57.0. The package, lockfile and digest-pinned test image now use 1.57.0 together; no application timing workaround was retained. The minimal reproducer is included in browser acceptance tests.
+
+All three focused WebKit cases passed with normal failure tracing enabled: the minimal reproducer, combined multiplayer navigation/recovery, and solo draft/shift recovery without an API (1.4 minutes). They include uncertain joins, retained credentials, same/different invitations, countdown navigation, refresh, full-page Back, page suspension, solved feedback, round isolation and confirmed departures.
+
+The expired-session browser fixture now seeds sessionStorage before application startup. The earlier fixture injected credentials into an already initialized client and raced same-document navigation against reload; it could reach the saved-session gate instead of testing expired-session startup. The corrected case passes in all four browser projects.
+
+### Complete release gate
+
+`npm run check:containers` completed successfully with Node 24.22.3 and the digest-pinned Playwright 1.57.0 image. The final application, stylesheet and test-source hashes matched the files inside the verification container.
+
+| Check | Observed result |
+| --- | --- |
+| ESLint | Passed. |
+| Unit/API/memory | 43 passed; zero skipped. |
+| Production build | Passed. |
+| Actual local Redis over HTTP | Integration suite passed; zero skipped. |
+| Browser acceptance | All 56 passed in one run (11.7 minutes): 42 Chromium cases across desktop/360/390px and 14 WebKit cases at 390px; zero skipped. |
+| Cleanup | Verification containers and network removed; gate exited with code 0. |
+
+The two previously recorded 360px overflow failures now pass, including gameplay and setup at 200% text size. Axe, touch targets, keyboard/dialog focus, reduced motion, local assets, LAN play and navigation/session recovery pass in every configured browser project. No application or test changes were made after this passing gate; documentation and visual-capture tooling were finalized afterward. The capture helper now requests reduced motion to avoid transient entrance fades; its syntax check and final lint pass succeeded. Physical-phone hardware, hosted Upstash and deployed Vercel remain unverified.
+
+Generated and reviewed 18 final screenshots in ignored `design-artifacts/final/`: landing, setup, countdown, gameplay, feedback, results, lobby, host dashboard and cancellation at 1440px desktop and 390px mobile. Controls, code/QR placement, wrapping and the alphabet wheel remain readable and within the viewport. The capture container exited successfully and was removed.
+
+## Review against the remote
+
+Reviewed all tracked changes and new files against `origin/main` at `a059725`, including the existing local redesign commit. The review covers local brand assets, shared visual components and alphabet wheel, spectator-only host policy, LAN binding and secure randomness, transport/session identity protection, route and draft recovery, documentation, dependency/container alignment and unit/Redis/browser checks. README difficulty descriptions were corrected to match the wheel controls. Secrets, generated output, dependencies and browser artifacts remain excluded from Git. No other BitPolito project was modified.
+
+## Earlier update: HTTP LAN play
+
+Development now binds to `0.0.0.0` by default and prints local and non-loopback network URLs. `HOST` still overrides the binding; preview remains loopback-only unless explicitly exposed. The host should open the printed Network URL so invitations and QR codes use a phone-reachable origin.
+
+Browser UUIDs now use cryptographically secure `getRandomValues()` with standard UUID-v4 version/variant bits. Bearer tokens still contain 32 secure random bytes; missing secure randomness fails closed. Solo and multiplayer no longer require the HTTPS-only `randomUUID()` method. No weak-random fallback, browser security flags, certificate installation or production HTTPS changes were added.
+
+Observed results: lint, build and **38 unit/API tests passed**. All **four targeted LAN browser cases passed** in the pinned container (desktop/360/390px Chromium and 390px WebKit, 1.9 minutes). Each case confirmed a non-secure HTTP origin with no `randomUUID`, completed solo with API blocked, created a spectator-host room, joined in another browser context, completed the race, recovered through refresh and checked QR/copy fallback behavior.
+
+An additional 390px Chromium case passed against the computer's real Wi-Fi address, `http://192.168.1.173:5174`, with a successful health check through that address. The server printed the correct Wi-Fi URL; the Wi-Fi firewall zone already allowed TCP 5173 and was not changed. The temporary QA server and test container/network were stopped afterward. Physical-phone hardware remains unverified. The complete browser suite was not repeated for this change; its prior two 360px text-enlargement failures remain recorded below.
+
+## Earlier update: spectator-only hosts
+
+Room setup now defaults the editable host name to **BitPolito** and has no participation option. Creation requires `participates: false`; requests enabling host participation are rejected. Server projections, capacity, standings and gameplay authorization exclude hosts even when an older stored membership has `participates: true`.
+
+Local lint, build and **36 unit/API tests passed**, including direct-request rejection and legacy-host protection. The real Redis integration suite passed with separate players racing while the host controls the room. All host lifecycle and recovery browser checks passed across desktop/360/390px Chromium and 390px WebKit.
+
+At that milestone, the complete container run finished with **38 browser tests passed and 2 failed** (8.2 minutes). Both failures are horizontal overflow at 200% text size in 360px Chromium: solo gameplay accessibility and enlarged solo setup. These solo paths are unaffected by the host-policy update; the existing uncommitted visual edits were preserved without CSS changes. Failure artifacts were written to `test-results/container/results/`; subsequent browser runs replace that directory. Container/network cleanup succeeded.
+
+## Earlier redesign verification
 
 ```sh
 npm run check:containers
 ```
 
-The gate uses Node 24.22.3, the pinned Playwright 1.56.1 Ubuntu image, Redis 7.4.12 and Serverless Redis HTTP. Image digests are recorded in `Dockerfile.test` and `compose.test.yml`. The host default remains Node 22.17.0; the container gate does not change host libraries or runtime configuration.
+That earlier gate used Node 24.22.3, the pinned Playwright 1.56.1 Ubuntu image, Redis 7.4.12 and Serverless Redis HTTP. Image digests are recorded in `Dockerfile.test` and `compose.test.yml`. The host default remains Node 22.17.0; the container gate does not change host libraries or runtime configuration.
 
 | Check | Observed result |
 | --- | --- |

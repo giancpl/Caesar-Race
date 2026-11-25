@@ -1,9 +1,11 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { networkInterfaces } from 'node:os';
 import { buildApp } from './build.js';
 import { createHandler } from '../server/http/handler.js';
 const preview = process.argv.includes('--preview');
+const host = process.env.HOST || (preview || process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
 if (!preview) await buildApp();
 const api = createHandler();
 const commonHeaders = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8')).headers.find((entry) => entry.source === '/(.*)').headers;
@@ -21,7 +23,21 @@ const server = createServer(async (req, res) => {
     res.end(req.method === 'HEAD' ? undefined : await readFile(file));
   } catch { res.statusCode = 404; res.end('Not found'); }
 });
-server.listen(Number(process.env.PORT || 5173), process.env.HOST || '127.0.0.1', () => console.log(`Caesar Race: http://${process.env.HOST || '127.0.0.1'}:${process.env.PORT || 5173}`));
+server.listen(Number(process.env.PORT || 5173), host, () => {
+  const port = server.address().port;
+  const wildcard = ['0.0.0.0', '::'].includes(host);
+  const localHost = wildcard ? 'localhost' : host.includes(':') ? `[${host}]` : host;
+  console.log(`Caesar Race: http://${localHost}:${port}`);
+  if (wildcard) {
+    let interfaces = {};
+    try { interfaces = networkInterfaces(); } catch { /* Local-only environments may deny interface enumeration. */ }
+    for (const [name, addresses] of Object.entries(interfaces)) {
+      if (/^(docker|br-|veth|virbr)/.test(name)) continue;
+      for (const address of addresses) if (address.family === 'IPv4' && !address.internal) console.log(`Network (${name}): http://${address.address}:${port}`);
+    }
+    console.log('Use the Network URL on your phone and on the host computer so invitations work on the LAN.');
+  }
+});
 let rebuild;
 let building = false;
 let rebuildQueued = false;

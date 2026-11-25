@@ -21,7 +21,7 @@ async function answer(page) {
 }
 try {
   for (const [name, viewport] of [['desktop', { width: 1440, height: 1000 }], ['mobile', { width: 390, height: 844 }]]) {
-    const context = await browser.newContext({ viewport });
+    const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
     const page = await context.newPage();
     await page.goto(origin); await capture(page, name, 'landing');
     await page.getByRole('button', { name: 'Play Solo', exact: true }).click(); await capture(page, name, 'setup');
@@ -36,7 +36,7 @@ try {
     await page.getByRole('button', { name: 'Create room', exact: true }).click();
     const code = await page.locator('.room-code').innerText();
     await page.locator('.qr-button img').waitFor(); await capture(page, name, 'lobby');
-    const playerContext = await browser.newContext({ viewport }); const player = await playerContext.newPage();
+    const playerContext = await browser.newContext({ viewport, reducedMotion: 'reduce' }); const player = await playerContext.newPage();
     await player.goto(`${origin}/?join=${code}`); await player.getByLabel('Player name').fill('Alice');
     await player.getByRole('button', { name: 'Join room', exact: true }).click();
     await page.getByRole('button', { name: 'Start race', exact: true }).waitFor({ state: 'visible' });

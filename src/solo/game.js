@@ -1,8 +1,9 @@
 import { generateSequence } from '../challenges/generate.js';
 import { freshProgress, applyRound, hintText } from '../core/rules.js';
 import { storage, SOLO_SESSION } from '../transport/session.js';
+import { randomId } from '../core/random.js';
 export function createSolo(difficulty, rounds, previous = []) {
-  const game = { version: 1, id: crypto.randomUUID(), difficulty, rounds, sequence: generateSequence(difficulty, rounds, undefined, previous), progress: freshProgress(), startsAt: Date.now() + 3000, endedAt: null };
+  const game = { version: 1, id: randomId(), difficulty, rounds, sequence: generateSequence(difficulty, rounds, undefined, previous), progress: freshProgress(), startsAt: Date.now() + 3000, endedAt: null };
   saveSolo(game); return game;
 }
 export function saveSolo(game) { storage.set(SOLO_SESSION, game); }

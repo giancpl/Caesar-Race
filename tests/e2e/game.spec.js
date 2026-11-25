@@ -36,15 +36,34 @@ for (const difficulty of ['Easy', 'Hard']) test(`${difficulty} solo works throug
   await page.route('**/api/**', (route) => route.abort()); await startSolo(page, difficulty);
   await noOverflow(page);
   expect(await page.getByRole('slider').count()).toBe(difficulty === 'Easy' ? 1 : 0);
+  await expect(page.locator('.cipher-wheel-svg')).toBeVisible();
+  const initialOuterTransform = await page.locator('.cipher-wheel__outer').getAttribute('transform');
+  const initialInnerTransform = await page.locator('.cipher-wheel__inner').getAttribute('transform');
   if (difficulty === 'Easy') {
     await page.getByRole('slider').focus(); await page.keyboard.press('Home'); await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#shift-value')).toHaveText('1');
     await expect(page.locator('#candidate')).toHaveText(decrypt(await page.locator('.ciphertext').innerText(), 1));
+    await expect(page.locator('.cipher-wheel__outer')).toHaveAttribute('transform', initialOuterTransform);
+    await expect(page.locator('.cipher-wheel__inner')).not.toHaveAttribute('transform', initialInnerTransform);
+    await page.getByRole('button', { name: 'Lock key' }).click();
+    await expect(page.getByRole('button', { name: 'Key locked' })).toHaveAttribute('aria-pressed', 'true');
+    const lockedInnerTransform = await page.locator('.cipher-wheel__inner').getAttribute('transform');
+    await page.getByRole('slider').focus(); await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#shift-value')).toHaveText('1');
+    await expect(page.locator('.cipher-wheel__outer')).not.toHaveAttribute('transform', initialOuterTransform);
+    await expect(page.locator('.cipher-wheel__inner')).not.toHaveAttribute('transform', lockedInnerTransform);
     await page.getByRole('button', { name: 'Use this candidate', exact: true }).click();
     await expect(page.getByLabel('Your plaintext answer')).toHaveValue(await page.locator('#candidate').innerText());
     await expect(page.locator('#attempts-stat')).toHaveText('0');
     await page.locator('#mapping-details summary').click(); await noOverflow(page);
   }
-  if (difficulty === 'Hard') await expect(page.locator('#candidate')).toHaveCount(0);
+  if (difficulty === 'Hard') {
+    await expect(page.locator('#candidate')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Increase shift', exact: true }).click();
+    await expect(page.locator('#shift-value')).toHaveText('1');
+    await expect(page.locator('.cipher-wheel__outer')).toHaveAttribute('transform', initialOuterTransform);
+    await expect(page.locator('.cipher-wheel__inner')).not.toHaveAttribute('transform', initialInnerTransform);
+  }
   await page.getByLabel('Your plaintext answer').fill('A wrong answer.'); await page.getByRole('button', { name: 'Check answer', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Not quite yet' })).toBeVisible();
   await page.locator('#hints-details summary').click(); await page.getByRole('button', { name: 'Reveal hint 1' }).click();
@@ -64,7 +83,7 @@ test('answer focus survives polling, shared room lifecycle restores sessions and
   const host = await hostContext.newPage(); const player = await playerContext.newPage(); const other = await otherContext.newPage();
   for (const p of [host, player, other]) p.on('dialog', (dialog) => dialog.accept());
   try {
-    await host.goto(baseURL); await host.getByRole('button', { name: 'Create Room', exact: true }).click(); await host.getByLabel('Host name').fill('Teacher');
+    await host.goto(baseURL); await host.getByRole('button', { name: 'Create Room', exact: true }).click(); await expect(host.getByLabel('Host name')).toHaveValue('BitPolito'); await expect(host.getByLabel('Participate as a player')).toHaveCount(0);
     await host.getByLabel('Rounds to complete').fill('2'); await host.getByRole('button', { name: 'Create room', exact: true }).click();
     const code = await host.locator('.room-code').innerText(); await expect(host.getByRole('button', { name: 'Start race', exact: true })).toBeDisabled();
     await noOverflow(host);
@@ -77,6 +96,8 @@ test('answer focus survives polling, shared room lifecycle restores sessions and
     await accessible(host); await touchTargets(host);
     await host.getByRole('button', { name: 'Start race', exact: true }).click();
     await expect(player.locator('.ciphertext')).toBeVisible(); await expect(other.locator('.ciphertext')).toBeVisible();
+    await expect(host.getByRole('heading', { name: 'Watch discovery happen.' })).toBeVisible();
+    await expect(host.locator('.ciphertext')).toHaveCount(0); await expect(host.getByLabel('Your plaintext answer')).toHaveCount(0);
     await noOverflow(player);
     expect(await player.locator('.ciphertext').innerText()).toBe(await other.locator('.ciphertext').innerText());
     await player.getByLabel('Your plaintext answer').fill('Draft survives polling'); await player.getByLabel('Your plaintext answer').focus();
@@ -95,16 +116,22 @@ test('answer focus survives polling, shared room lifecycle restores sessions and
     await expect(player.getByText('RACE CANCELLED', { exact: true })).toBeVisible();
   } finally { await Promise.all([hostContext.close(), playerContext.close(), otherContext.close()]); }
 });
-test('uncertain committed answer recovers once, then network drafts remain editable', async ({ page }) => {
-  await page.goto('/#create'); await page.getByLabel('Host name').fill('Playing host'); await page.getByLabel('Rounds to complete').fill('2'); await page.getByLabel('Participate as a player').check(); await page.getByRole('button', { name: 'Create room', exact: true }).click();
-  await page.getByRole('button', { name: 'Start race', exact: true }).click(); await expect(page.locator('.ciphertext')).toBeVisible();
-  let dropped = false;
-  await page.route('**/api/room?action=answer', async (route) => { if (!dropped) { dropped = true; await route.fetch(); await route.abort(); } else await route.continue(); });
-  await answer(page); await expect(page.getByRole('button', { name: 'Next Round', exact: true })).toBeVisible({ timeout: 15000 }); await expect(page.locator('#attempts-stat')).toHaveText('1');
-  await page.getByRole('button', { name: 'Next Round', exact: true }).click(); await page.getByLabel('Your plaintext answer').fill('Keep this answer');
-  await page.context().setOffline(true); await expect(page.getByRole('alert')).toContainText(/Connection|Reconnecting/); await expect(page.getByLabel('Your plaintext answer')).toHaveValue('Keep this answer');
-  await page.getByRole('button', { name: 'Retry connection', exact: true }).click();
-  await page.context().setOffline(false); await expect(page.getByRole('alert')).not.toBeVisible(); await expect(page.getByLabel('Your plaintext answer')).toHaveValue('Keep this answer');
+test('uncertain committed answer recovers once, then network drafts remain editable', async ({ page, browser, baseURL }) => {
+  const hostContext = await browser.newContext(); const host = await hostContext.newPage();
+  try {
+    await host.goto(`${baseURL}/#create`); await host.getByLabel('Rounds to complete').fill('2'); await host.getByRole('button', { name: 'Create room', exact: true }).click();
+    const code = await host.locator('.room-code').innerText();
+    await page.goto(`${baseURL}/?join=${code}`); await page.getByLabel('Player name').fill('Alice'); await page.getByRole('button', { name: 'Join room', exact: true }).click();
+    await expect(host.getByRole('button', { name: 'Start race', exact: true })).toBeEnabled();
+    await host.getByRole('button', { name: 'Start race', exact: true }).click(); await expect(page.locator('.ciphertext')).toBeVisible();
+    let dropped = false;
+    await page.route('**/api/room?action=answer', async (route) => { if (!dropped) { dropped = true; await route.fetch(); await route.abort(); } else await route.continue(); });
+    await answer(page); await expect(page.getByRole('button', { name: 'Next Round', exact: true })).toBeVisible({ timeout: 15000 }); await expect(page.locator('#attempts-stat')).toHaveText('1');
+    await page.getByRole('button', { name: 'Next Round', exact: true }).click(); await page.getByLabel('Your plaintext answer').fill('Keep this answer');
+    await page.context().setOffline(true); await expect(page.getByRole('alert')).toContainText(/Connection|Reconnecting/); await expect(page.getByLabel('Your plaintext answer')).toHaveValue('Keep this answer');
+    await page.getByRole('button', { name: 'Retry connection', exact: true }).click();
+    await page.context().setOffline(false); await expect(page.getByRole('alert')).not.toBeVisible(); await expect(page.getByLabel('Your plaintext answer')).toHaveValue('Keep this answer');
+  } finally { await hostContext.close(); }
 });
 test('reduced motion and gameplay accessibility', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await startSolo(page, 'Easy', 1); await noOverflow(page);
@@ -141,11 +168,10 @@ test('setup retains selected settings after a validation error', async ({ page }
   await page.getByLabel('Host name').fill('W'.repeat(25));
   await page.getByRole('radio', { name: /Hard/ }).check();
   await page.getByLabel('Rounds to complete').fill('5');
-  await page.getByLabel('Participate as a player').check();
   await page.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Choose a name');
   await expect(page.getByRole('radio', { name: /Hard/ })).toBeChecked();
-  await expect(page.getByLabel('Participate as a player')).toBeChecked();
+  await expect(page.getByLabel('Participate as a player')).toHaveCount(0);
   await expect(page.getByLabel('Rounds to complete')).toHaveValue('5');
 });
 test('production headers and local QR invitations work without external requests', async ({ page }) => {
@@ -176,9 +202,8 @@ test('production headers and local QR invitations work without external requests
   expect(violations).toEqual([]);
 });
 test('expired session recovery shows an actionable terminal screen', async ({ page }) => {
-  await page.goto('/');
-  await page.evaluate(() => sessionStorage.setItem('caesar-race:room:v1', JSON.stringify({ token: 'a'.repeat(43), code: 'ABC234', expiresAt: Date.now() - 10000 })));
+  await page.addInitScript(() => sessionStorage.setItem('caesar-race:room:v1', JSON.stringify({ token: 'a'.repeat(43), code: 'ABC234', expiresAt: Date.now() - 10000 })));
   await page.route('**/api/room?action=status*', (route) => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'ROOM_UNAVAILABLE' }) }));
-  await page.goto('/#room'); await page.reload(); await expect(page.getByText('ROOM EXPIRED', { exact: true })).toBeVisible();
+  await page.goto('/#room'); await expect(page.getByText('ROOM EXPIRED', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Return home', exact: true }).click(); await expect(page.getByRole('button', { name: 'Play Solo', exact: true })).toBeVisible();
 });

@@ -1,19 +1,85 @@
 :root {
-  --blue: #001ce0;
-  --blue-hover: #0016b8;
-  --tint: #eef1ff;
-  --ink: #17213c;
-  --muted: #58647d;
-  --canvas: #f9f9f9;
-  --white: #ffffff;
-  --border: #d8deed;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-  --radius: 12px;
-  --radius-card: 24px;
-  --shadow: 0 12px 32px -16px #1b2a661c, 0 3px 8px #1b2a6605;
-  --shadow-raised: 0 16px 36px -18px #001ce038;
-  --success: #24623c;
-  --success-bg: #eff8f1;
-  --danger: #a32029;
+  /* BitPolito design system tokens aligned with BitPolito/MiningGame */
+  --bp-canvas: #f9f9f9;
+  --bp-surface: #f9f9f9;
+  --bp-white: #ffffff;
+  --bp-blue: #001ce0;
+  --bp-50: #f0f2fa;
+  --bp-100: #e8ebf7;
+  --bp-200: #d4daf4;
+  --bp-300: #a8b4ef;
+  --bp-400: #7d8bed;
+  --bp-500: #5f70ea;
+  --bp-600: #4155e7;
+  --bp-700: #253de4;
+  --bp-800: #142ee2;
+
+  /* Primary blue ink; muted uses bp-600 (5.42:1+ on #f9f9f9 and #fff) */
+  --bp-text: #001ce0;
+  --bp-text-muted: var(--bp-600);
+  --bp-text-soft: var(--bp-700);
+  --bp-on-blue: #ffffff;
+  --bp-on-blue-muted: rgba(255, 255, 255, 0.88);
+  --bp-on-solid-subtle: rgba(255, 255, 255, 0.2);
+  --bp-on-solid-faint: rgba(255, 255, 255, 0.15);
+
+  --bp-border-width: 2px;
+  --bp-radius-sm: 10px;
+  --bp-radius: 12px;
+  --bp-radius-lg: 16px;
+  --bp-radius-card: 16px;
+
+  --bp-shadow-sm: 0 1px 3px color-mix(in srgb, var(--bp-blue) 6%, transparent);
+  --bp-shadow-md: 0 4px 16px color-mix(in srgb, var(--bp-blue) 10%, transparent);
+  --bp-shadow-elev: 0 2px 10px color-mix(in srgb, var(--bp-blue) 8%, transparent);
+  --bp-shadow-elev-hover: 0 6px 20px color-mix(in srgb, var(--bp-blue) 14%, transparent);
+  --bp-shadow-btn: 0 4px 14px color-mix(in srgb, var(--bp-blue) 16%, transparent);
+
+  --bp-green: #2e7d32;
+  --bp-green-bg: #e8f5e9;
+  --bp-green-light: #c8e6c9;
+  --bp-green-border: #a5d6a7;
+  --bp-green-bright: #66bb6a;
+
+  --bp-red: #e53935;
+  --bp-red-ink: #b71c1c;
+  --bp-red-bg: #ffebee;
+  --bp-red-border: #ffcdd2;
+
+  --bp-amber: #f57c00;
+  --bp-amber-ink: #7a3e00;
+  --bp-amber-bg: #fff8e1;
+  --bp-amber-border: #ffe082;
+
+  --bp-tint-blue-6: color-mix(in srgb, var(--bp-blue) 6%, transparent);
+  --bp-tint-blue-8: color-mix(in srgb, var(--bp-blue) 8%, transparent);
+  --bp-tint-blue-15: color-mix(in srgb, var(--bp-blue) 15%, transparent);
+  --bp-tint-blue-20: color-mix(in srgb, var(--bp-blue) 20%, transparent);
+  --bp-tint-blue-25: color-mix(in srgb, var(--bp-blue) 25%, transparent);
+  --bp-overlay: color-mix(in srgb, var(--bp-blue) 32%, transparent);
+  --bp-surface-glass: color-mix(in srgb, var(--bp-surface) 95%, transparent);
+  --bp-ring-blue: 0 0 0 3px var(--bp-tint-blue-25);
+  --bp-ring-blue-sm: 0 0 0 3px var(--bp-tint-blue-15);
+
+  --bp-font: 'SF Pro Display', 'SF Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --bp-mono: ui-monospace, 'SF Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+
+  /* Caesar Race semantic aliases */
+  --blue: var(--bp-blue);
+  --blue-hover: var(--bp-800);
+  --tint: var(--bp-50);
+  --ink: var(--bp-text);
+  --muted: var(--bp-text-muted);
+  --canvas: var(--bp-canvas);
+  --white: var(--bp-white);
+  --border: var(--bp-200);
+  --font: var(--bp-font);
+  --mono: var(--bp-mono);
+  --radius: var(--bp-radius);
+  --radius-card: var(--bp-radius-lg);
+  --shadow: var(--bp-shadow-elev);
+  --shadow-raised: var(--bp-shadow-elev-hover);
+  --success: var(--bp-green);
+  --success-bg: var(--bp-green-bg);
+  --danger: var(--bp-red-ink);
 }

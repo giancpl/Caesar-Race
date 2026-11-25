@@ -1,11 +1,10 @@
 import { storage, ROOM_SESSION } from './session.js';
+import { randomId, secureBytes } from '../core/random.js';
 export function newRequestId() {
-  if (!globalThis.crypto?.randomUUID) throw new ApiError('SECURE_CONTEXT_REQUIRED');
-  return crypto.randomUUID();
+  return randomId();
 }
 function newToken() {
-  if (!globalThis.crypto?.getRandomValues || !globalThis.crypto?.randomUUID) throw new ApiError('SECURE_CONTEXT_REQUIRED');
-  return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(String.fromCharCode(...secureBytes(32))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 export class ApiError extends Error {
   constructor(code, status = 0, retryAfter = 0) { super(code); this.code = code; this.status = status; this.retryAfter = retryAfter; }
@@ -45,6 +44,7 @@ export class RoomClient {
   }
   async bootstrap(action, body) {
     if (this.session?.bootstrap || this.session?.pending) throw new ApiError('PENDING_REQUEST');
+    if (this.session) throw new ApiError('SESSION_EXISTS');
     this.dispose();
     this.session = { token: newToken(), code: body.code || null, bootstrap: { action, body: { ...body, requestId: newRequestId() } } }; this.save();
     return this.recover();
@@ -62,7 +62,7 @@ export class RoomClient {
       const { action, body } = session.bootstrap;
       let data;
       try { data = await this.request(action, body, session.token); this.assertCurrent(session); }
-      catch (error) { if (this.session === session && error.status >= 400 && error.status < 500 && error.status !== 429) this.clear(); throw error; }
+      catch (error) { this.assertCurrent(session); if (error.status >= 400 && error.status < 500 && error.status !== 429) this.clear(); throw error; }
       session.code = data.room.code; session.expiresAt = data.room.expiresAt; delete session.bootstrap; this.save();
       return data;
     }
@@ -72,7 +72,8 @@ export class RoomClient {
         const data = await this.request(pending.action, pending.body, session.token); this.assertCurrent(session);
         delete session.pending; this.save(); return data;
       } catch (error) {
-        if (this.session === session && error.status >= 400 && error.status < 500 && error.status !== 429) { delete session.pending; this.save(); }
+        this.assertCurrent(session);
+        if (error.status >= 400 && error.status < 500 && error.status !== 429) { delete session.pending; this.save(); }
         throw error;
       }
     }
@@ -81,7 +82,8 @@ export class RoomClient {
   async status() {
     const session = this.session;
     if (!session) throw new ApiError('INVALID_SESSION', 401);
-    const data = await this.request('status', { code: session.code }, session.token); this.assertCurrent(session); return data;
+    try { const data = await this.request('status', { code: session.code }, session.token); this.assertCurrent(session); return data; }
+    catch (error) { this.assertCurrent(session); throw error; }
   }
   async mutate(action, room, extra = {}) {
     if (!this.session) throw new ApiError('INVALID_SESSION', 401);

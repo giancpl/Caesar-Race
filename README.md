@@ -11,14 +11,16 @@ npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. One local origin serves frontend and API. Local multiplayer uses an in-memory store; restarting the server clears rooms. Source changes rebuild the frontend; reload the browser to see them. Restart the server after backend changes.
+Open **http://localhost:5173**. Development listens on all network interfaces and prints a **Network** URL, for example `http://192.168.1.173:5173`. Open that URL on a smartphone connected to the same Wi-Fi. Use the Network URL on the host computer too, so invitation links and QR codes contain an address the phone can reach. `localhost` on the phone refers to the phone itself.
 
-For built assets, run `npm run build` followed by `npm run preview`. Do not open the HTML directly from disk. To test phones on the same trusted network, start with `HOST=0.0.0.0 npm run dev`; use HTTPS for Web Crypto, session creation and clipboard capabilities on non-loopback origins. A secure development tunnel is appropriate for physical-phone tests. The QR uses the origin opened in the host browser.
+One local origin serves frontend and API. Local multiplayer uses an in-memory store; restarting the server clears rooms. Source changes rebuild the frontend; reload the browser to see them. Restart the server after backend changes. To restrict development to this computer, use `HOST=127.0.0.1 npm run dev`.
+
+For built assets, run `npm run build` followed by `npm run preview`. Preview stays on loopback by default; use `HOST=0.0.0.0 npm run preview` to expose it on the LAN. Do not open the HTML directly from disk. Solo and room sessions work on HTTP LAN origins using cryptographically secure `getRandomValues()` for tokens and UUIDs. Clipboard access can be unavailable on HTTP; the existing selectable-text fallback remains available. Use local HTTP only on a trusted network; hosted deployments still use HTTPS.
 
 ## Play
 
-- **Solo:** choose Easy or Hard and 1–10 rounds (default 3). Easy includes a live shift slider; Hard offers a static alphabet reference. A local three-second countdown starts the timer.
-- **Multiplayer:** create a room and share its six-character code, invitation URL or locally generated QR. The host spectates by default and may choose to participate. A participating host occupies one of 30 player slots.
+- **Solo:** choose Easy or Hard and 1–10 rounds (default 3). Both provide an interactive alphabet wheel with keyboard controls and a lockable key. Easy adds live candidate decryption and an alphabet table; Hard requires manual decoding. A local three-second countdown starts the timer.
+- **Multiplayer:** create a room and share its six-character code, invitation URL or locally generated QR. The host name defaults to BitPolito and remains editable. The host is always a spectator and does not occupy a player slot.
 - Every player gets the same ordered messages and progresses independently. The host starts a shared three-second countdown; joining then closes.
 - Enter the original plaintext. ASCII letter case and extra whitespace do not matter; punctuation does. Encryption preserves case, spaces, punctuation and non-ASCII characters. Generated keys are 1–25.
 - Three hints reveal the method, first word and key in order. Each new hint costs 10 points. Each wrong answer costs 2; malformed/empty input costs nothing.
@@ -30,6 +32,10 @@ Solo saves an active game in sessionStorage and the latest 20 results locally. T
 ## Sessions and rooms
 
 Refresh restores a valid room session in the same tab. Bearer tokens are generated with Web Crypto, sent only in Authorization headers and stored in sessionStorage; the server stores hashes. No credentials enter invitation URLs. Closing the tab ends normal recovery. Storage denial retains in-memory functionality, but refresh recovery cannot then be promised.
+
+Home, browser Back/Forward, refresh and backgrounding never send a departure request. Resume from the home screen or reopen the same invitation in the original tab to recover your existing identity. Creating or joining another room cannot replace a saved session. Interrupted create/join requests retry the original credentials and request ID, including after refresh. Draft answers and shift selections also recover in the same tab, separately for solo and multiplayer and only for their original race, player and round.
+
+To leave deliberately, expand **Room session** and use **Leave room** (player) or **Close room** (host), then confirm. Cancelling the dialog keeps membership. Closing a host room ends it for everyone. Merely navigating Home keeps a race running and preserves host controls for recovery.
 
 Disconnections preserve membership and progress. A disconnected host does not stop the race, and host ownership never transfers. Explicit player departure removes a lobby membership or marks a started-race participant as left. If every participant explicitly leaves an active race, it is cancelled without a winner. A host explicitly leaving closes the room for everyone.
 
@@ -64,7 +70,7 @@ The official logo and selected SVGs are bundled locally; their source paths are 
 
 | Action | Method | Authorization / fields |
 | --- | --- | --- |
-| create | POST | New bearer; requestId, name, difficulty, rounds, participates |
+| create | POST | New bearer; requestId, name, difficulty, rounds, participates (must be false) |
 | preview | GET | Public; code query parameter |
 | join | POST | New bearer; requestId, code, name |
 | status | GET | Member bearer; code query parameter |
@@ -137,7 +143,8 @@ For repeatable visual review, start the built preview, then run `node scripts/ca
 - **Invalid session:** use the original tab; an explicit departure revokes access. No accounts or host-transfer recovery exist.
 - **Reconnecting:** keep the tab open. The client retries a pending mutation with its original ID; do not create a second identity to bypass recovery.
 - **Storage unavailable:** check server-only Redis configuration and provider status. Solo is still available.
-- **Web Crypto unavailable on a phone:** use HTTPS; insecure LAN origins are not supported for session creation.
+- **Phone cannot connect:** open the printed Network URL, keep both devices on the same Wi-Fi, allow inbound TCP port 5173 in the computer's firewall, and check that the Wi-Fi does not isolate clients. Restart an older dev server so it picks up LAN binding. No router port forwarding is needed.
+- **Secure randomness unavailable:** use a current browser or HTTPS. Local HTTP does not require `randomUUID()`; secure random generation is never replaced with `Math.random()`.
 - **WebKit launch dependencies missing:** use `npm run check:containers`, or install Playwright's `--with-deps` on a supported host. Record verification as incomplete until a browser actually runs.
 
 ## Reference and license
