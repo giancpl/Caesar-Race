@@ -52,6 +52,12 @@ Public preview includes settings and occupancy, not names. Authenticated status 
 
 Caesar has just 26 possible shifts including identity, so brute-force and external solvers are easy. Even a large key space alone does not establish security. Server authority protects recorded progress; comprehensive anti-cheat protection is not promised.
 
+## BitPolito visual identity
+
+The interface uses BitPolito blue `#001CE0`, a `#F9F9F9` canvas, white cards, subtle shadows and the supplied pixel-style artwork. Setup, invitations, gameplay, feedback and results share the same controls and spacing. On phones, mode choices precede decorative content and the current challenge precedes tools and statistics. Text enlargement, visible focus, reduced motion and 44px action targets are covered by browser checks.
+
+The official logo and selected SVGs are bundled locally; their source paths are documented in [the asset inventory](public/brand/README.md). No font or image service is required.
+
 ## API contract
 
 `GET /api/health` checks storage. Room requests use `/api/room?action=ACTION`.
@@ -123,6 +129,8 @@ GitHub Actions runs the same complete container gate, including local Redis and 
 
 See [VERIFICATION.md](VERIFICATION.md) for observed results and remaining external verification.
 
+For repeatable visual review, start the built preview, then run `node scripts/capture-ui.js after`. Set `CAESAR_CAPTURE_URL` to the preview origin when using a different port (the capture script defaults to `http://127.0.0.1:5173`). It uses local Chromium and saves desktop/mobile landing, setup, countdown, playing, solved feedback, results, lobby, host dashboard and cancellation screens in the ignored `design-artifacts/after/` directory. Keep captures outside Playwright's test-output directory so later test runs preserve them.
+
 ## Troubleshooting
 
 - **Room unavailable:** check the code and the fixed 24-hour expiry. Local server restarts clear memory rooms.
@@ -134,4 +142,4 @@ See [VERIFICATION.md](VERIFICATION.md) for observed results and remaining extern
 
 ## Reference and license
 
-Architecture and workshop-flow inspiration: [BitPolito/MiningGame at 6f8523f](https://github.com/BitPolito/MiningGame/tree/6f8523f6e0bd20d83dd7efa1dc33f32d5396e4d4). The Caesar logic, UI and SVG artwork here are original. MIT licensed; see LICENSE.
+Architecture and workshop-flow inspiration: [BitPolito/MiningGame at 6f8523f](https://github.com/BitPolito/MiningGame/tree/6f8523f6e0bd20d83dd7efa1dc33f32d5396e4d4). The Caesar logic and UI implementation are original and MIT licensed; see LICENSE. Supplied BitPolito branding is attributed separately in the asset inventory.

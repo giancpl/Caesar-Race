@@ -1,11 +1,19 @@
 :root {
   --blue: #001ce0;
+  --blue-hover: #0016b8;
+  --tint: #eef1ff;
   --ink: #17213c;
   --muted: #58647d;
-  --canvas: #f5f6fa;
+  --canvas: #f9f9f9;
   --white: #ffffff;
-  --border: #dce1ed;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --border: #d8deed;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-  --shadow: 7px 7px 20px #dbe0eb70, -7px -7px 20px #ffffff;
+  --radius: 12px;
+  --radius-card: 24px;
+  --shadow: 0 12px 32px -16px #1b2a661c, 0 3px 8px #1b2a6605;
+  --shadow-raised: 0 16px 36px -18px #001ce038;
+  --success: #24623c;
+  --success-bg: #eff8f1;
+  --danger: #a32029;
 }

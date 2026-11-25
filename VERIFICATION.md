@@ -1,6 +1,6 @@
 # Implementation verification
 
-Recorded on 25 November 2026. Verification was completed locally before connecting the GitHub remote. No cloud resources were provisioned and no application deployment was performed.
+Recorded on 25 November 2026, including the Soft BitPolito redesign. Checks were performed locally. No cloud resources were provisioned and no application deployment was performed.
 
 ## Reproducible local gate
 
@@ -18,14 +18,21 @@ The gate uses Node 24.22.3, the pinned Playwright 1.56.1 Ubuntu image, Redis 7.4
 | Unit/API/memory checks | 35 passed, zero skipped. |
 | Production build | Passed; versioned banks validated and server/Upstash imports excluded from static assets. |
 | Actual local Redis | Integration test passed, zero skipped; exercises the HTTP SDK and actual Redis Lua commands. |
-| Browser acceptance | All 36 passed in one run (6.3 minutes): 27 Chromium cases across desktop/360/390px and 9 WebKit cases at 390px. Zero skipped. |
-| Visual inspection | Desktop landing, mobile landing and 390px mobile playing screen inspected. |
+| Browser acceptance | All 40 passed in one run (7.4 minutes): 30 Chromium cases across desktop/360/390px and 10 WebKit cases at 390px. Zero skipped. Two focused 360px checks also passed before the full gate. |
+| Visual inspection | Before/after captures cover nine screens at 1440px desktop and 390px mobile. Redesigned landing, setup, lobby, gameplay, countdown, feedback, dashboard, results and terminal layouts reviewed. |
 
 The Redis suite uses isolated namespaces and independent HTTP handlers sharing one real Redis instance. It covers the storage contract, expiry, idempotent hints, concurrent duplicate-name joins, the final capacity slot, simultaneous final answers, final answers racing cancellation, and late answers racing rematch resets. It checks that only one winner persists, cancelled races have no winner, progress clears on reset and the original expiry survives. Cleanup deletes only tracked test keys. The container gate also runs all browser projects against the Redis-backed API, without cloud credentials or published service ports, then removes its containers and network.
 
-The complete gate exited successfully, including container/network cleanup. Application code, test code and configuration were unchanged after that run; only documentation and repository packaging were finalized afterward.
+The complete redesign gate exited successfully, including container/network cleanup. The application uses the same rules, API and storage contracts as the previously verified implementation. No runtime or browser-test changes were made after the passing gate. Final documentation and local packaging were completed afterward.
 
 Browser acceptance covers solo Easy/Hard during API outages; candidate controls and hints; explicit Next Round; scoring and results; refresh recovery; independent host/player sessions; shared challenges; independent progression; rematches; lobby occupancy; focus/draft preservation while polling; committed create and answer responses lost over the network; reconnecting; keyboard access; reduced motion; axe checks; horizontal overflow; setup validation recovery; local QR generation; safe rendering of host names; production security headers/CSP; and expired-session recovery.
+
+## Soft BitPolito design review
+
+- Replaced the text wordmark and generated favicon with the supplied BitPolito SVGs. All eight SVGs were checked byte for byte against their source assets. Selected artwork is attributed in `public/brand/README.md`; no dependencies or external asset requests were added.
+- Reworked every screen around shared spacing, controls, white surfaces, restrained shadows and accessible colors. Mobile mode choices precede the decorative illustration; the current message and answer precede tools and statistics. Desktop setup pairs an introduction with the form.
+- Added checks for logo/favicon loading, responsive content order, 200% text enlargement, minimum 44px action targets, enlarged-text dialog focus restoration and overflow. Axe checks cover setup, lobby, gameplay and results.
+- Preserved 18 baseline captures from commit `a059725` and 18 redesigned captures in ignored `design-artifacts/before/` and `design-artifacts/after/`. The capture helper supports repeatable nine-screen desktop/mobile reviews, independently of browser test-output cleanup.
 
 ## External verification boundaries
 

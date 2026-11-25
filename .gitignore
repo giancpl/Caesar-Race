@@ -4,6 +4,7 @@ dist/
 !.env.example
 test-results/
 playwright-report/
+design-artifacts/
 .data/
 .git-local/
 *.bundle

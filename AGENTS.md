@@ -17,4 +17,4 @@ This is a standalone BitPolito educational game. Keep all code comments, documen
 - Never commit `.env.local`, `.env.test.local`, credentials, `dist/`, browser traces or dependency directories.
 - No provisioning, deployment or external writes are needed for local implementation. Preserve this boundary unless the user requests those actions.
 
-Reference: MiningGame commit `6f8523f6e0bd20d83dd7efa1dc33f32d5396e4d4` supplied flow and architecture inspiration. This repository contains its own Caesar-specific implementation and original UI assets.
+Reference: MiningGame commit `6f8523f6e0bd20d83dd7efa1dc33f32d5396e4d4` supplied flow and architecture inspiration. This repository contains its own Caesar-specific implementation and locally bundled BitPolito brand assets, attributed in `public/brand/README.md`.

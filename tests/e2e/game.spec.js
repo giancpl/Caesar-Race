@@ -8,6 +8,17 @@ function solve(ciphertext) {
   throw new Error('No bank message matches ciphertext');
 }
 async function noOverflow(page) { expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true); }
+async function accessible(page) {
+  const report = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  expect(report.violations).toEqual([]);
+}
+async function touchTargets(page) {
+  const small = await page.evaluate(() => [...document.querySelectorAll('button, summary, input[type=range], .difficulty-option, .check-field')].filter((element) => {
+    const box = element.getBoundingClientRect();
+    return box.width > 0 && box.height > 0 && (box.width < 44 || box.height < 44);
+  }).map((element) => element.textContent || element.getAttribute('aria-label')));
+  expect(small).toEqual([]);
+}
 async function startSolo(page, difficulty = 'Easy', rounds = 2) {
   await page.goto('/'); await page.getByRole('button', { name: 'Play Solo', exact: true }).click();
   await page.getByRole('radio', { name: new RegExp(difficulty) }).check(); await page.getByLabel('Rounds to complete').fill(String(rounds));
@@ -42,9 +53,11 @@ for (const difficulty of ['Easy', 'Hard']) test(`${difficulty} solo works throug
   await page.reload(); await expect(page.getByRole('button', { name: 'Next Round', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Next Round', exact: true }).click(); await answer(page);
   await expect(page.getByText('LOCAL RESULT — NON-AUTHORITATIVE', { exact: true })).toBeVisible(); await expect(page.locator('#points-stat')).toHaveText('188');
+  await accessible(page); await touchTargets(page);
   await noOverflow(page); await page.getByRole('button', { name: 'New game', exact: true }).click(); await expect(page.locator('.ciphertext')).toBeVisible();
 });
 test('answer focus survives polling, shared room lifecycle restores sessions and rematches', async ({ browser, baseURL }, testInfo) => {
+  test.setTimeout(90000);
   const { viewport, isMobile, hasTouch } = testInfo.project.use;
   const options = { viewport, isMobile, hasTouch };
   const hostContext = await browser.newContext(options); const playerContext = await browser.newContext(options); const otherContext = await browser.newContext(options);
@@ -61,6 +74,7 @@ test('answer focus survives polling, shared room lifecycle restores sessions and
     }
     await expect(host.getByRole('button', { name: 'Start race', exact: true })).toBeEnabled();
     await expect(host.locator('[data-occupancy]').first()).toHaveText('2/30 players');
+    await accessible(host); await touchTargets(host);
     await host.getByRole('button', { name: 'Start race', exact: true }).click();
     await expect(player.locator('.ciphertext')).toBeVisible(); await expect(other.locator('.ciphertext')).toBeVisible();
     await noOverflow(player);
@@ -96,6 +110,31 @@ test('reduced motion and gameplay accessibility', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); await startSolo(page, 'Easy', 1); await noOverflow(page);
   const report = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze(); expect(report.violations).toEqual([]);
   await page.getByLabel('Your plaintext answer').focus(); await page.keyboard.press('Tab'); await expect(page.getByRole('button', { name: 'Check answer', exact: true })).toBeFocused();
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  await noOverflow(page); await touchTargets(page);
+  await page.locator('#hints-details summary').click(); await noOverflow(page);
+  await page.getByRole('button', { name: 'How to play', exact: true }).click();
+  await noOverflow(page); await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'How to play', exact: true })).toBeFocused();
+});
+test('BitPolito assets, responsive hierarchy and enlarged setup text', async ({ page, request }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: /Caesar Race/ })).toBeVisible();
+  const logo = page.locator('.wordmark img');
+  await expect(logo).toHaveAttribute('src', '/brand/bitpolito-logo-blue.svg');
+  await expect.poll(() => page.locator('img').evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth > 0))).toBe(true);
+  expect((await request.get('/brand/favicon.svg')).ok()).toBe(true);
+  const modes = await page.locator('.mode-grid').boundingBox(); const art = await page.locator('.cipher-art').boundingBox();
+  if (page.viewportSize().width <= 800) expect(modes.y + modes.height).toBeLessThanOrEqual(art.y);
+  else expect(art.x).toBeGreaterThan((await page.locator('.hero').boundingBox()).x);
+  await touchTargets(page);
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  await noOverflow(page);
+  await page.getByRole('button', { name: 'Play Solo', exact: true }).click();
+  await noOverflow(page); await touchTargets(page); await accessible(page);
+  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Join Room', exact: true }).click();
+  await noOverflow(page); await touchTargets(page);
 });
 test('setup retains selected settings after a validation error', async ({ page }) => {
   await page.goto('/#create');
