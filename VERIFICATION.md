@@ -1,6 +1,6 @@
 # Implementation verification
 
-Recorded on 25 November 2026. The requested delivery is repository-only: no cloud resources were provisioned, no remote repository was written and no deployment was performed.
+Recorded on 25 November 2026. Verification was completed locally before connecting the GitHub remote. No cloud resources were provisioned and no application deployment was performed.
 
 ## Reproducible local gate
 
@@ -31,8 +31,8 @@ Browser acceptance covers solo Easy/Hard during API outages; candidate controls 
 
 - **Hosted Upstash:** actual local Redis and its HTTP protocol passed. A hosted Upstash database has not been tested because no dedicated cloud credentials were supplied. Provider configuration, latency and account limits remain unverified. The protected integration job and `npm run test:redis` support a later dedicated test database; required CI credentials cannot silently skip the test.
 - **Physical phones:** Safari/iOS and Chrome/Android were not tested on hardware. WebKit and mobile viewport emulation do not verify virtual keyboards, camera QR scanning, clipboard permissions or OS background suspension. Record these checks on physical devices before a workshop release.
-- **Vercel:** function packaging, deployed routing/headers, regional latency and credentials remain unverified. Local preview exercises the configured security headers and CSP. Deployment configuration and instructions are included; publishing was explicitly excluded from this delivery.
-- **Hosted CI:** the same container gate is configured for GitHub Actions, but no remote workflow run was triggered or observed.
+- **Vercel:** function packaging, deployed routing/headers, regional latency and credentials remain unverified. Local preview exercises the configured security headers and CSP. Deployment configuration and instructions are included; application deployment is outside this delivery.
+- **Hosted CI:** the same container gate is configured for GitHub Actions. No remote workflow result was observed during local verification; pushing to `main` can trigger it.
 
 ## Workspace Git packaging
 
@@ -53,4 +53,6 @@ npm ci
 npm run dev
 ```
 
-No remote is configured or required. The bundle excludes dependencies, build output, environment secrets, test artifacts and workspace-specific Git metadata. The generated bundle itself is ignored by Git.
+The workspace's `origin` is `git@github.com:giancpl/Caesar-Race.git`, connected at the user's request after local verification. A normal checkout can use `git clone git@github.com:giancpl/Caesar-Race.git`. In this managed workspace, use `git --git-dir=.git-local --work-tree=. push` for later pushes.
+
+The bundle excludes dependencies, build output, environment secrets, test artifacts and workspace-specific Git metadata. The generated bundle itself is ignored by Git.
